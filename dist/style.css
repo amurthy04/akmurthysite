@@ -1,7 +1,7 @@
 body { margin: 8px; background: #fff; color: #000; font-family: Helvetica, Arial, sans-serif; font-size: 13px; }
 #menu { position: fixed; top: 38px; right: 28px; text-align: right; width: 150px; font-family: "Myriad Pro", "Helvetica Neue", Helvetica, Arial, sans-serif; line-height: 16px; }
-#menu .name { color: #000; text-decoration: none; font-weight: 400; }
-#link-window { height: 240px; max-height: calc(100dvh - 80px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+#menu .name { color: #000; text-decoration: none; font-weight: 400; display: block; position: relative; z-index: 1; background: #fff; }
+#link-window { --fade-top: 0px; --fade-bottom: 12px; height: 240px; max-height: calc(100dvh - 80px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent); }
 #link-window::-webkit-scrollbar { display: none; }
 #menu ul { list-style: none; margin: 0; padding: 0; }
 #menu li { min-height: 16px; }

@@ -4,7 +4,23 @@ const indicator = document.querySelector('#scroll-date');
 const entries = [...scroller.querySelectorAll('li')];
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const formatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-let hideTimer, frame, previousDate, navigating;
+let hideTimer, frame, previousDate, navigating, settleTimer, touching = false;
+function updateEdges() {
+  scroller.style.setProperty('--fade-top', scroller.scrollTop > 1 ? '12px' : '0px');
+  scroller.style.setProperty('--fade-bottom', scroller.scrollTop < scroller.scrollHeight - scroller.clientHeight - 1 ? '12px' : '0px');
+}
+// Let native momentum finish before gently aligning the window to a whole row.
+function scheduleSettle() {
+  clearTimeout(settleTimer);
+  settleTimer = setTimeout(() => {
+    if (touching) return;
+    const top = scroller.getBoundingClientRect().top;
+    const offsets = entries.map(entry => entry.getBoundingClientRect().top - top + scroller.scrollTop);
+    const target = offsets.reduce((nearest, offset) => Math.abs(offset - scroller.scrollTop) < Math.abs(nearest - scroller.scrollTop) ? offset : nearest, 0);
+    const bounded = Math.min(target, scroller.scrollHeight - scroller.clientHeight);
+    if (Math.abs(bounded - scroller.scrollTop) > 0.75) scroller.scrollTo({top: bounded, behavior: reducedMotion.matches ? 'instant' : 'smooth'});
+  }, 180);
+}
 // Preserve the window on reload and make deep-linked posts visible without flashing a date.
 try { scroller.scrollTop = Number(sessionStorage.getItem('post-window')) || 0; } catch {}
 function revealSelected() {
@@ -15,6 +31,7 @@ function revealSelected() {
   else if (box.bottom > viewport.bottom) scroller.scrollTop += box.bottom - viewport.bottom;
 }
 revealSelected();
+updateEdges();
 let previousY = scroller.scrollTop;
 function update() {
   frame = null;
@@ -22,6 +39,8 @@ function update() {
   if (y === previousY) return;
   const direction = y > previousY ? 1 : -1;
   previousY = y;
+  updateEdges();
+  scheduleSettle();
   const top = scroller.getBoundingClientRect().top;
   const active = entries.find(entry => entry.getBoundingClientRect().bottom > top + 1) || entries.at(-1);
   const date = formatter.format(new Date(active.dataset.date + 'T12:00:00Z'));
@@ -39,6 +58,10 @@ function update() {
   try { sessionStorage.setItem('post-window', String(y)); } catch {}
 }
 scroller.addEventListener('scroll', () => { if (!frame) frame = requestAnimationFrame(update); }, {passive:true});
+scroller.addEventListener('touchstart', () => { touching = true; clearTimeout(settleTimer); }, {passive:true});
+scroller.addEventListener('touchend', () => { touching = false; scheduleSettle(); }, {passive:true});
+scroller.addEventListener('touchcancel', () => { touching = false; scheduleSettle(); }, {passive:true});
+scroller.addEventListener('wheel', scheduleSettle, {passive:true});
 // On the empty homepage, scrolling anywhere moves the small link window.
 window.addEventListener('wheel', event => {
   if (document.body.classList.contains('article') || menu.contains(event.target) || event.ctrlKey || !event.deltaY) return;
