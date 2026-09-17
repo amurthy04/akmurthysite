@@ -5,6 +5,20 @@ const entries = [...scroller.querySelectorAll('li')];
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const formatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 let hideTimer, frame, previousDate, navigating, settleTimer, touching = false;
+// Reserve the widest title (including its selected weight) across the whole archive.
+// The date's right edge stays a fixed distance from that shared title column.
+function alignDate() {
+  const context = document.createElement('canvas').getContext('2d');
+  const style = getComputedStyle(entries[0].querySelector('a'));
+  context.font = `700 ${style.fontSize} ${style.fontFamily}`;
+  const widest = Math.ceil(Math.max(...entries.map(entry => context.measureText(entry.textContent).width)));
+  document.documentElement.style.setProperty('--title-width', `${Math.min(widest, Math.max(150, innerWidth - 180))}px`);
+  indicator.style.setProperty('--date-top', `${scroller.getBoundingClientRect().top}px`);
+}
+alignDate();
+document.fonts.ready.then(alignDate);
+window.addEventListener('resize', alignDate);
+
 function updateEdges() {
   scroller.style.setProperty('--fade-top', scroller.scrollTop > 1 ? '12px' : '0px');
   scroller.style.setProperty('--fade-bottom', scroller.scrollTop < scroller.scrollHeight - scroller.clientHeight - 1 ? '12px' : '0px');
@@ -37,7 +51,6 @@ function update() {
   frame = null;
   const y = scroller.scrollTop;
   if (y === previousY) return;
-  const direction = y > previousY ? 1 : -1;
   previousY = y;
   updateEdges();
   scheduleSettle();
@@ -48,7 +61,7 @@ function update() {
     indicator.firstElementChild.textContent = date;
     if (previousDate && !reducedMotion.matches) {
       indicator.firstElementChild.getAnimations().forEach(animation => animation.cancel());
-      indicator.firstElementChild.animate([{opacity:0, transform:`translateY(${direction * 6}px)`},{opacity:1, transform:'translateY(0)'}], {duration:180, easing:'ease-out'});
+      indicator.firstElementChild.animate([{opacity:0},{opacity:1}], {duration:180, easing:'ease-out'});
     }
     previousDate = date;
   }
