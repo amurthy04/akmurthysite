@@ -2,9 +2,8 @@ const menu = document.querySelector('#menu');
 const scroller = document.querySelector('#link-window');
 const indicator = document.querySelector('#scroll-date');
 const entries = [...scroller.querySelectorAll('li')];
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const formatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-let hideTimer, frame, previousDate, navigating, settleTimer, touching = false;
+let hideTimer, navigating, topIndex = 0;
 // Reserve the widest title (including its selected weight) across the whole archive.
 // The date's right edge stays a fixed distance from that shared title column.
 function alignDate() {
@@ -17,71 +16,88 @@ function alignDate() {
 }
 alignDate();
 document.fonts.ready.then(alignDate);
-window.addEventListener('resize', alignDate);
+window.addEventListener('resize', () => { alignDate(); setRow(topIndex, false); });
 
-function updateEdges() {
-  scroller.style.setProperty('--fade-top', scroller.scrollTop > 1 ? '12px' : '0px');
-  scroller.style.setProperty('--fade-bottom', scroller.scrollTop < scroller.scrollHeight - scroller.clientHeight - 1 ? '12px' : '0px');
-}
-// Let native momentum finish before gently aligning the window to a whole row.
-function scheduleSettle() {
-  clearTimeout(settleTimer);
-  settleTimer = setTimeout(() => {
-    if (touching) return;
-    const top = scroller.getBoundingClientRect().top;
-    const offsets = entries.map(entry => entry.getBoundingClientRect().top - top + scroller.scrollTop);
-    const target = offsets.reduce((nearest, offset) => Math.abs(offset - scroller.scrollTop) < Math.abs(nearest - scroller.scrollTop) ? offset : nearest, 0);
-    const bounded = Math.min(target, scroller.scrollHeight - scroller.clientHeight);
-    if (Math.abs(bounded - scroller.scrollTop) > 0.75) scroller.scrollTo({top: bounded, behavior: reducedMotion.matches ? 'instant' : 'smooth'});
-  }, 180);
-}
-// Preserve the window on reload and make deep-linked posts visible without flashing a date.
-try { scroller.scrollTop = Number(sessionStorage.getItem('post-window')) || 0; } catch {}
-function revealSelected() {
-  const selected = scroller.querySelector('[aria-current="page"]');
-  if (!selected) return;
-  const box = selected.getBoundingClientRect(), viewport = scroller.getBoundingClientRect();
-  if (box.top < viewport.top) scroller.scrollTop += box.top - viewport.top;
-  else if (box.bottom > viewport.bottom) scroller.scrollTop += box.bottom - viewport.bottom;
-}
-revealSelected();
-updateEdges();
-let previousY = scroller.scrollTop;
-function update() {
-  frame = null;
-  const y = scroller.scrollTop;
-  if (y === previousY) return;
-  previousY = y;
-  updateEdges();
-  scheduleSettle();
+// Every input advances an integer row; there are no in-between visual states.
+function offsets() {
   const top = scroller.getBoundingClientRect().top;
-  const active = entries.find(entry => entry.getBoundingClientRect().bottom > top + 1) || entries.at(-1);
-  const date = formatter.format(new Date(active.dataset.date + 'T12:00:00Z'));
-  if (date !== previousDate) {
-    indicator.firstElementChild.textContent = date;
-    if (previousDate && !reducedMotion.matches) {
-      indicator.firstElementChild.getAnimations().forEach(animation => animation.cancel());
-      indicator.firstElementChild.animate([{opacity:0},{opacity:1}], {duration:180, easing:'ease-out'});
-    }
-    previousDate = date;
-  }
-  indicator.classList.add('visible');
-  clearTimeout(hideTimer);
-  hideTimer = setTimeout(() => indicator.classList.remove('visible'), 600);
-  try { sessionStorage.setItem('post-window', String(y)); } catch {}
+  return entries.map(entry => entry.getBoundingClientRect().top - top + scroller.scrollTop);
 }
-scroller.addEventListener('scroll', () => { if (!frame) frame = requestAnimationFrame(update); }, {passive:true});
-scroller.addEventListener('touchstart', () => { touching = true; clearTimeout(settleTimer); }, {passive:true});
-scroller.addEventListener('touchend', () => { touching = false; scheduleSettle(); }, {passive:true});
-scroller.addEventListener('touchcancel', () => { touching = false; scheduleSettle(); }, {passive:true});
-scroller.addEventListener('wheel', scheduleSettle, {passive:true});
-// On the empty homepage, scrolling anywhere moves the small link window.
+function setRow(index, showDate = true) {
+  const positions = offsets();
+  const maximum = scroller.scrollHeight - scroller.clientHeight;
+  const last = positions.findLastIndex(position => position <= maximum + 0.75);
+  const next = Math.max(0, Math.min(index, last));
+  const changed = next !== topIndex;
+  topIndex = next;
+  scroller.scrollTo({top: positions[next], behavior: 'instant'});
+  indicator.firstElementChild.textContent = formatter.format(new Date(entries[next].dataset.date + 'T12:00:00Z'));
+  if (showDate && changed) {
+    indicator.classList.add('visible');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => indicator.classList.remove('visible'), 600);
+  }
+  try { sessionStorage.setItem('post-window', String(positions[next])); } catch {}
+}
+try {
+  const saved = Number(sessionStorage.getItem('post-window')) || 0;
+  const positions = offsets();
+  topIndex = positions.reduce((best, position, index) => Math.abs(position - saved) < Math.abs(positions[best] - saved) ? index : best, 0);
+} catch {}
+function revealSelected() {
+  const index = entries.findIndex(entry => entry.querySelector('[aria-current="page"]'));
+  if (index < 0) return;
+  const positions = offsets();
+  if (index < topIndex) setRow(index, false);
+  else if (positions[index] + entries[index].getBoundingClientRect().height > positions[topIndex] + scroller.clientHeight + 0.75) {
+    const first = positions.findIndex(position => position >= positions[index] + entries[index].getBoundingClientRect().height - scroller.clientHeight - 0.75);
+    setRow(first, false);
+  }
+}
+setRow(topIndex, false);
+revealSelected();
+let lastWheel = -Infinity, lastDirection = 0, wheelIdle;
 window.addEventListener('wheel', event => {
-  if (document.body.classList.contains('article') || menu.contains(event.target) || event.ctrlKey || !event.deltaY) return;
+  if (event.ctrlKey || !event.deltaY || (document.body.classList.contains('article') && !menu.contains(event.target))) return;
   event.preventDefault();
-  const amount = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? scroller.clientHeight : 1);
-  scroller.scrollBy({top:amount, behavior:'instant'});
+  const direction = Math.sign(event.deltaY);
+  const now = performance.now();
+  // Filter high-frequency trackpad events without allowing partial-row motion.
+  if (direction !== lastDirection || now - lastWheel >= 100) {
+    setRow(topIndex + direction);
+    lastWheel = now;
+    lastDirection = direction;
+  }
+  clearTimeout(wheelIdle);
+  wheelIdle = setTimeout(() => { lastWheel = -Infinity; }, 120);
 }, {passive:false});
+scroller.addEventListener('keydown', event => {
+  const steps = {ArrowDown:1, ArrowUp:-1, PageDown:15, PageUp:-15, ' ':event.shiftKey ? -15 : 15};
+  if (event.key === 'Home' || event.key === 'End') {
+    event.preventDefault(); setRow(event.key === 'Home' ? 0 : entries.length - 1);
+  } else if (event.key in steps) {
+    event.preventDefault(); setRow(topIndex + steps[event.key]);
+  }
+});
+let touchY;
+scroller.addEventListener('touchstart', event => { touchY = event.touches[0].clientY; }, {passive:true});
+scroller.addEventListener('touchmove', event => {
+  if (event.touches.length !== 1 || touchY === undefined) return;
+  event.preventDefault();
+  const distance = touchY - event.touches[0].clientY;
+  if (Math.abs(distance) >= 18) {
+    setRow(topIndex + Math.sign(distance));
+    touchY = event.touches[0].clientY;
+  }
+}, {passive:false});
+scroller.addEventListener('touchend', () => { touchY = undefined; });
+// Keyboard tabbing can reveal an offscreen link; immediately align that view too.
+scroller.addEventListener('focusin', event => {
+  const index = entries.findIndex(entry => entry.contains(event.target));
+  if (index < 0) return;
+  if (index < topIndex) setRow(index);
+  else if (index >= topIndex + 15) setRow(index - 14);
+});
 async function navigate(url, push) {
   navigating?.abort();
   const controller = new AbortController();
