@@ -1,28 +1,78 @@
+const menu = document.querySelector('#menu');
+const scroller = document.querySelector('#link-window');
 const indicator = document.querySelector('#scroll-date');
-const entries = [...document.querySelectorAll('#menu li[data-date]')];
-const formatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-let hideTimer, frame, previousDate;
-let previousY = window.scrollY;
+const entries = [...scroller.querySelectorAll('li')];
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const formatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+let hideTimer, frame, previousDate, navigating;
+// Preserve the window on reload and make deep-linked posts visible without flashing a date.
+try { scroller.scrollTop = Number(sessionStorage.getItem('post-window')) || 0; } catch {}
+function revealSelected() {
+  const selected = scroller.querySelector('[aria-current="page"]');
+  if (!selected) return;
+  const box = selected.getBoundingClientRect(), viewport = scroller.getBoundingClientRect();
+  if (box.top < viewport.top) scroller.scrollTop += box.top - viewport.top;
+  else if (box.bottom > viewport.bottom) scroller.scrollTop += box.bottom - viewport.bottom;
+}
+revealSelected();
+let previousY = scroller.scrollTop;
 function update() {
   frame = null;
-  const currentY = window.scrollY;
-  if (currentY === previousY || !entries.length) return;
-  const direction = currentY > previousY ? 1 : -1;
-  previousY = currentY;
-  const active = entries.find(entry => entry.getBoundingClientRect().bottom > 40) || entries.at(-1);
-  const date = active.dataset.date;
+  const y = scroller.scrollTop;
+  if (y === previousY) return;
+  const direction = y > previousY ? 1 : -1;
+  previousY = y;
+  const top = scroller.getBoundingClientRect().top;
+  const active = entries.find(entry => entry.getBoundingClientRect().bottom > top + 1) || entries.at(-1);
+  const date = formatter.format(new Date(active.dataset.date + 'T12:00:00Z'));
   if (date !== previousDate) {
-    indicator.firstElementChild.textContent = formatter.format(new Date(date + 'T12:00:00Z'));
+    indicator.firstElementChild.textContent = date;
     if (previousDate && !reducedMotion.matches) {
       indicator.firstElementChild.getAnimations().forEach(animation => animation.cancel());
-      indicator.firstElementChild.animate([{ opacity: 0, transform: `translateY(${direction * 7}px)` }, { opacity: 1, transform: 'translateY(0)' }], { duration: 180, easing: 'ease-out' });
+      indicator.firstElementChild.animate([{opacity:0, transform:`translateY(${direction * 6}px)`},{opacity:1, transform:'translateY(0)'}], {duration:180, easing:'ease-out'});
     }
     previousDate = date;
   }
   indicator.classList.add('visible');
   clearTimeout(hideTimer);
   hideTimer = setTimeout(() => indicator.classList.remove('visible'), 600);
+  try { sessionStorage.setItem('post-window', String(y)); } catch {}
 }
-window.addEventListener('scroll', () => { if (!frame) frame = requestAnimationFrame(update); }, { passive: true });
-window.addEventListener('pagehide', () => { clearTimeout(hideTimer); indicator.classList.remove('visible'); });
+scroller.addEventListener('scroll', () => { if (!frame) frame = requestAnimationFrame(update); }, {passive:true});
+// On the empty homepage, scrolling anywhere moves the small link window.
+window.addEventListener('wheel', event => {
+  if (document.body.classList.contains('article') || menu.contains(event.target) || event.ctrlKey || !event.deltaY) return;
+  event.preventDefault();
+  const amount = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? scroller.clientHeight : 1);
+  scroller.scrollBy({top:amount, behavior:'instant'});
+}, {passive:false});
+async function navigate(url, push) {
+  navigating?.abort();
+  const controller = new AbortController();
+  navigating = controller;
+  try {
+    const response = await fetch(url, {signal:controller.signal});
+    if (!response.ok) throw new Error('Navigation failed');
+    const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+    const content = page.querySelector('#content');
+    if (!content) throw new Error('Missing post');
+    document.querySelector('#content').replaceWith(content);
+    document.title = page.title;
+    document.body.className = page.body.className;
+    if (push) history.pushState(null, '', url);
+    menu.querySelectorAll('a').forEach(link => {
+      if (link.pathname === location.pathname && link.closest('li')) link.setAttribute('aria-current','page');
+      else link.removeAttribute('aria-current');
+    });
+    revealSelected();
+    window.scrollTo(0,0);
+    indicator.classList.remove('visible');
+  } catch (error) { if (error.name !== 'AbortError') location.assign(url); }
+}
+menu.addEventListener('click', event => {
+  const link = event.target.closest('a');
+  if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  navigate(link.href, true);
+});
+window.addEventListener('popstate', () => navigate(location.href, false));
