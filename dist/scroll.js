@@ -31,6 +31,8 @@ function setRow(index, showDate = true) {
   const changed = next !== topIndex;
   topIndex = next;
   scroller.scrollTo({top: positions[next], behavior: 'instant'});
+  scroller.style.setProperty('--fade-top', next > 0 ? '12px' : '0px');
+  scroller.style.setProperty('--fade-bottom', next < last ? '12px' : '0px');
   indicator.firstElementChild.textContent = formatter.format(new Date(entries[next].dataset.date + 'T12:00:00Z'));
   if (showDate && changed) {
     indicator.classList.add('visible');
