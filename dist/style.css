@@ -1,0 +1,16 @@
+body { margin: 8px; background: #fff; color: #000; font-family: Helvetica, Arial, sans-serif; font-size: 13px; }
+#menu { float: right; margin-top: 30px; margin-right: 20px; text-align: right; width: 150px; font-family: "Myriad Pro", "Helvetica Neue", Helvetica, Arial, sans-serif; padding-bottom: 40px; }
+#menu h1 { font-size: inherit; font-weight: 400; margin: 0; }
+#menu ul { list-style: none; margin: 0; padding: 0; }
+#menu li a { display: inline-block; }
+a, a:visited { color: #0864c7; }
+a:focus-visible { outline: 1px solid #0864c7; outline-offset: 3px; }
+#scroll-date { position: fixed; right: 200px; top: 39px; margin: 0; color: #777; font-size: 13px; font-family: "Myriad Pro", "Helvetica Neue", Helvetica, Arial, sans-serif; pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity 180ms ease, transform 180ms ease; }
+#scroll-date.visible { opacity: 1; transform: translateY(0); }
+#scroll-date span { display: inline-block; }
+#content { margin: 23px 210px 60px 200px; max-width: 500px; font-size: 16px; line-height: 1.55; }
+#content h1 { font-family: "Myriad Pro", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 26px; line-height: 1.2; margin: 26px 0 8px; }
+#content time, #content .note { color: #777; font-size: 14px; }
+#content p { color: #333; }
+@media (max-width: 650px) { #content { margin: 30px 20px; } body.article #menu { float: none; width: auto; margin: 30px 20px; } #scroll-date { left: 20px; right: auto; max-width: calc(100vw - 200px); } }
+@media (prefers-reduced-motion: reduce) { #scroll-date { transition: none; transform: none; } }
