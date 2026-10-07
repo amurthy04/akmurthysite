@@ -2,7 +2,7 @@
 body { margin: 8px; background: #fff; color: #000; font-family: Helvetica, Arial, sans-serif; font-size: 13px; }
 #menu { position: fixed; top: 38px; right: var(--sidebar-right); text-align: right; width: max(150px, var(--title-width)); font-family: "Myriad Pro", "Helvetica Neue", Helvetica, Arial, sans-serif; line-height: 16px; }
 #menu .name { color: #000; text-decoration: none; font-weight: 400; display: block; position: relative; z-index: 1; background: #fff; }
-#link-window { --fade-top: 0px; --fade-bottom: 12px; mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent); -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent); height: 240px; max-height: calc(100dvh - 80px); overflow: hidden; overscroll-behavior: contain; touch-action: pan-x pinch-zoom; scrollbar-width: none; }
+#link-window { --fade: 24px; --fade-top: 0px; --fade-bottom: var(--fade); --edge: linear-gradient(to bottom, transparent, rgba(0,0,0,.55) calc(var(--fade-top) / 3), rgba(0,0,0,.92) calc(var(--fade-top) * 2 / 3), #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), rgba(0,0,0,.92) calc(100% - var(--fade-bottom) * 2 / 3), rgba(0,0,0,.55) calc(100% - var(--fade-bottom) / 3), transparent); mask-image: var(--edge); -webkit-mask-image: var(--edge); height: 240px; max-height: calc(100dvh - 96px); overflow: hidden; overscroll-behavior: contain; touch-action: pan-x pinch-zoom; scrollbar-width: none; }
 #link-window::-webkit-scrollbar { display: none; }
 #menu ul { list-style: none; margin: 0; padding: 0; }
 #menu li { min-height: 16px; }
@@ -16,6 +16,7 @@ a:focus-visible { outline: 1px solid #0864c7; outline-offset: -1px; }
 #scroll-date span { display: inline-block; }
 #content { margin: 38px 210px 60px 200px; max-width: 500px; font-size: 16px; line-height: 1.55; overflow-wrap: break-word; }
 #content p { color: #333; margin: 0 0 1em; }
+#content .portrait { display: block; width: 144px; height: auto; max-width: 100%; margin: 0 0 1.4em; }
 @media (max-width: 800px) { #content { margin-left: 20px; } }
 @media (max-width: 520px) { :root { --sidebar-right: 20px; } #content { margin-left: 4px; margin-right: 184px; } }
 @media (prefers-reduced-motion: reduce) { #scroll-date { transition: none; transform: none; } }

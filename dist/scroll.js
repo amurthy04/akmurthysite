@@ -2,17 +2,21 @@ const menu = document.querySelector('#menu');
 const scroller = document.querySelector('#link-window');
 const indicator = document.querySelector('#scroll-date');
 const entries = [...scroller.querySelectorAll('li')];
+const titles = [...menu.querySelectorAll('li')];
 const formatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-let hideTimer, navigating, topIndex = 0;
+let hideTimer, navigating, topIndex = 0, rowStep = 16, residue = 0;
 // Reserve the widest title (including its selected weight) across the whole archive.
 // The date's right edge stays a fixed distance from that shared title column.
 function alignDate() {
+  if (!titles.length) return;
   const context = document.createElement('canvas').getContext('2d');
-  const style = getComputedStyle(entries[0].querySelector('a'));
+  const style = getComputedStyle(titles[0].querySelector('a'));
   context.font = `700 ${style.fontSize} ${style.fontFamily}`;
-  const widest = Math.ceil(Math.max(...entries.map(entry => context.measureText(entry.textContent).width)));
+  const widest = Math.ceil(Math.max(...titles.map(entry => context.measureText(entry.textContent).width)));
   document.documentElement.style.setProperty('--title-width', `${Math.min(widest, Math.max(150, innerWidth - 180))}px`);
   indicator.style.setProperty('--date-top', `${scroller.getBoundingClientRect().top}px`);
+  const positions = offsets();
+  rowStep = positions[1] - positions[0] || 16;
 }
 alignDate();
 document.fonts.ready.then(alignDate);
@@ -24,6 +28,7 @@ function offsets() {
   return entries.map(entry => entry.getBoundingClientRect().top - top + scroller.scrollTop);
 }
 function setRow(index, showDate = true) {
+  if (!entries.length) return;
   const positions = offsets();
   const maximum = scroller.scrollHeight - scroller.clientHeight;
   const last = positions.findLastIndex(position => position <= maximum + 0.75);
@@ -31,8 +36,8 @@ function setRow(index, showDate = true) {
   const changed = next !== topIndex;
   topIndex = next;
   scroller.scrollTo({top: positions[next], behavior: 'instant'});
-  scroller.style.setProperty('--fade-top', next > 0 ? '12px' : '0px');
-  scroller.style.setProperty('--fade-bottom', next < last ? '12px' : '0px');
+  scroller.style.setProperty('--fade-top', next > 0 ? 'var(--fade)' : '0px');
+  scroller.style.setProperty('--fade-bottom', next < last ? 'var(--fade)' : '0px');
   indicator.firstElementChild.textContent = formatter.format(new Date(entries[next].dataset.date + 'T12:00:00Z'));
   if (showDate && changed) {
     indicator.classList.add('visible');
@@ -58,20 +63,21 @@ function revealSelected() {
 }
 setRow(topIndex, false);
 revealSelected();
-let lastWheel = -Infinity, lastDirection = 0, wheelIdle;
+// Pointer travel maps one-to-one onto the list: each row height of movement steps exactly one row.
+// Sub-row travel is banked rather than dropped, so slow and fast gestures cover the same distance.
+function advance(distance) {
+  residue += distance;
+  const steps = Math.trunc(residue / rowStep);
+  if (!steps) return;
+  residue -= steps * rowStep;
+  const target = topIndex + steps;
+  setRow(target);
+  if (topIndex !== target) residue = 0;
+}
 window.addEventListener('wheel', event => {
   if (event.ctrlKey || !event.deltaY || (document.body.classList.contains('article') && !menu.contains(event.target))) return;
   event.preventDefault();
-  const direction = Math.sign(event.deltaY);
-  const now = performance.now();
-  // Filter high-frequency trackpad events without allowing partial-row motion.
-  if (direction !== lastDirection || now - lastWheel >= 100) {
-    setRow(topIndex + direction);
-    lastWheel = now;
-    lastDirection = direction;
-  }
-  clearTimeout(wheelIdle);
-  wheelIdle = setTimeout(() => { lastWheel = -Infinity; }, 120);
+  advance(event.deltaMode === 1 ? event.deltaY * rowStep : event.deltaMode === 2 ? event.deltaY * scroller.clientHeight : event.deltaY);
 }, {passive:false});
 scroller.addEventListener('keydown', event => {
   const steps = {ArrowDown:1, ArrowUp:-1, PageDown:15, PageUp:-15, ' ':event.shiftKey ? -15 : 15};
@@ -82,15 +88,12 @@ scroller.addEventListener('keydown', event => {
   }
 });
 let touchY;
-scroller.addEventListener('touchstart', event => { touchY = event.touches[0].clientY; }, {passive:true});
+scroller.addEventListener('touchstart', event => { touchY = event.touches[0].clientY; residue = 0; }, {passive:true});
 scroller.addEventListener('touchmove', event => {
   if (event.touches.length !== 1 || touchY === undefined) return;
   event.preventDefault();
-  const distance = touchY - event.touches[0].clientY;
-  if (Math.abs(distance) >= 18) {
-    setRow(topIndex + Math.sign(distance));
-    touchY = event.touches[0].clientY;
-  }
+  advance(touchY - event.touches[0].clientY);
+  touchY = event.touches[0].clientY;
 }, {passive:false});
 scroller.addEventListener('touchend', () => { touchY = undefined; });
 // Keyboard tabbing can reveal an offscreen link; immediately align that view too.
