@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-const posts = JSON.parse(readFileSync(new URL('./posts.json', import.meta.url))).sort((a,b) => b.date.localeCompare(a.date));
+import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+const posts = JSON.parse(readFileSync(new URL('./posts.json', import.meta.url))).filter(post => !post.draft).sort((a,b) => b.date.localeCompare(a.date));
 const escape = value => String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const icon = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="white"/><text x="16" y="25" text-anchor="middle" font-family="Helvetica,Arial" font-size="28" fill="#0864c7">A</text></svg>');
 const prose = text => escape(text).replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>');
@@ -12,6 +12,8 @@ const navigation = selected => `<nav id="menu" aria-label="Posts"><a class="name
 const figure = post => post.image ? `<img class="portrait" src="${escape(post.image.src)}" alt="${escape(post.image.alt || post.title)}" width="${escape(post.image.width)}" height="${escape(post.image.height)}">` : '';
 const script = '<script src="/scroll.js" defer></script>';
 mkdirSync('dist', { recursive: true });
+// Rebuild post pages from scratch so drafts and removed posts leave nothing behind.
+rmSync('dist/posts', { recursive: true, force: true });
 writeFileSync('dist/index.html', shell('Home', `${navigation()}<main id="content"></main>${script}`));
 for (const post of posts) {
   if (!/^[a-z0-9-]+$/.test(post.slug)) throw new Error('Invalid post slug');
