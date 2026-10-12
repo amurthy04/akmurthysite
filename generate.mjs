@@ -5,7 +5,10 @@ const icon = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.
 const prose = text => escape(text).replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>');
 const shell = (title, body, extra = '') => `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(title)} · Akshay Murthy</title><meta name="description" content="Notes and essays by Akshay Murthy."><link rel="icon" type="image/svg+xml" href="${icon}"><link rel="stylesheet" href="/style.css"></head><body${extra}>${body}</body></html>\n`;
 // Entries marked `fixed` sit above the window and never scroll; everything else scrolls.
-const item = (post, selected) => `<li data-date="${escape(post.date)}"><a href="/posts/${escape(post.slug)}/"${post.slug === selected ? ' aria-current="page"' : ''}>${escape(post.title)}</a></li>`;
+// A post may set `path` (e.g. "/fine.html") to live outside /posts/<slug>/.
+const url = post => post.path || `/posts/${post.slug}/`;
+const file = post => post.path ? `dist${post.path}` : `dist/posts/${post.slug}/index.html`;
+const item = (post, selected) => `<li data-date="${escape(post.date)}"><a href="${escape(url(post))}"${post.slug === selected ? ' aria-current="page"' : ''}>${escape(post.title)}</a></li>`;
 const pinned = posts.filter(post => post.fixed);
 const scrolling = posts.filter(post => !post.fixed);
 const navigation = selected => `<nav id="menu" aria-label="Posts"><a class="name" href="/">Akshay Murthy</a>${pinned.length ? `<ul id="pinned">${pinned.map(post => item(post, selected)).join('\n')}</ul>` : ''}<div id="link-window" tabindex="0" aria-label="Scroll through posts"><ul>${scrolling.map(post => item(post, selected)).join('\n')}</ul></div></nav><p id="scroll-date" aria-hidden="true"><span></span></p>`;
@@ -17,6 +20,7 @@ rmSync('dist/posts', { recursive: true, force: true });
 writeFileSync('dist/index.html', shell('Home', `${navigation()}<main id="content"></main>${script}`));
 for (const post of posts) {
   if (!/^[a-z0-9-]+$/.test(post.slug)) throw new Error('Invalid post slug');
-  mkdirSync(`dist/posts/${post.slug}`, { recursive: true });
-  writeFileSync(`dist/posts/${post.slug}/index.html`, shell(post.title, `${navigation(post.slug)}<main id="content" aria-label="${escape(post.title)}">${figure(post)}${post.paragraphs.map(paragraph => `<p>${prose(paragraph)}</p>`).join('')}</main>${script}`, ' class="article"'));
+  if (post.path && !/^\/[a-z0-9-]+\.html$/.test(post.path)) throw new Error('Invalid post path');
+  mkdirSync(file(post).replace(/\/[^/]+$/, ''), { recursive: true });
+  writeFileSync(file(post), shell(post.title, `${navigation(post.slug)}<main id="content" aria-label="${escape(post.title)}">${figure(post)}${post.paragraphs.map(paragraph => `<p>${prose(paragraph)}</p>`).join('')}</main>${script}`, ' class="article"'));
 }
