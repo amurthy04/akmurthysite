@@ -21,6 +21,11 @@ writeFileSync('dist/index.html', shell('Home', `${navigation()}<main id="content
 for (const post of posts) {
   if (!/^[a-z0-9-]+$/.test(post.slug)) throw new Error('Invalid post slug');
   if (post.path && !/^\/[a-z0-9-]+\.html$/.test(post.path)) throw new Error('Invalid post path');
+  // Keep the old /posts/<slug>/ address working by redirecting it to the custom path.
+  if (post.path) {
+    mkdirSync(`dist/posts/${post.slug}`, { recursive: true });
+    writeFileSync(`dist/posts/${post.slug}/index.html`, `<!doctype html>\n<meta charset="utf-8"><meta http-equiv="refresh" content="0; url=${escape(post.path)}"><link rel="canonical" href="${escape(post.path)}"><a href="${escape(post.path)}">${escape(post.title)}</a>\n`);
+  }
   mkdirSync(file(post).replace(/\/[^/]+$/, ''), { recursive: true });
   writeFileSync(file(post), shell(post.title, `${navigation(post.slug)}<main id="content" aria-label="${escape(post.title)}">${figure(post)}${post.paragraphs.map(paragraph => `<p>${prose(paragraph)}</p>`).join('')}</main>${script}`, ' class="article"'));
 }
