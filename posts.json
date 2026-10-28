@@ -1,5 +1,15 @@
 [
   {
+    "title": "The Best Time to Be Alive",
+    "slug": "alive",
+    "date": "2026-10-27",
+    "sample": false,
+    "paragraphs": [
+      "There has never been a better time to be alive. Soon, everyone will have access to world-class researchers, writers, coders, designers, biologists, clinicians, explainers... (the list goes on) for pennies on the dollar. We are very fortunate that generative pretrained transformers are a general-purpose technology: they can disrupt every field. New fractals of knowledge are opening up at an exponential pace, waiting to be discovered. As crazy as it sounds, if every field is up for grabs, the old way of thinking about science -- and more broadly, all work, intellectual or not -- will soon be a relic of the past. Expertise is quickly becoming a commodity, and fresh perspectives (what experts like to call \"naivete\") combined with infinite curiosity and ambition will lead to new, groundbreaking discoveries. It is hard to intuit how \"groundbreaking\" these discoveries can be, but I suspect they will be as impactful as the creation of Newtonian physics or the transistor, if not an order of magnitude more. And who will be the swashbucklers who carve out these new fields? Young people. So why not you? Infinite depths of knowledge lie unexplored: go find them."
+    ],
+    "path": "/alive.html"
+  },
+  {
     "title": "We will (hopefully) be fine",
     "slug": "fine",
     "date": "2026-09-17",
